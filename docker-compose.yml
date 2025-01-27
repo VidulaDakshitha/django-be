@@ -1,0 +1,42 @@
+version: '3.8'
+services:
+  db:
+    build:
+      context: .
+      dockerfile: ./docker/local/postgres/Dockerfile
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: SparetanDB
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: Pw@Sparetan
+    ports:
+      - "5432:5432"
+    networks:
+      - backend_network
+
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/local/django/Dockerfile
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    command: /start
+    env_file:
+        - .envs/.local/.django
+    depends_on:
+      - db
+    restart: always
+    networks:
+      - backend_network
+
+volumes:
+  postgres_data:
+  flower_data:
+
+networks:
+  backend_network:
+    driver: bridge

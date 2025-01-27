@@ -1,0 +1,81 @@
+version: '3.8'
+services:
+  db:
+    build:
+      context: .
+      dockerfile: ./docker/local/postgres/Dockerfile
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: SparetanDB
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: Pw@Sparetan
+    ports:
+      - "5432:5432"
+    networks:
+      - backend_network
+
+  redis:
+    image: redis:6
+    ports:
+      - "6379:6379"
+    networks:
+      - backend_network
+
+  celery:
+    build:
+      context: .
+      dockerfile: ./docker/local/django/Dockerfile
+    command: watchfiles celery.__main__.main --args '-A sparetan_backend_v1.celery worker -l INFO'
+    volumes:
+      - .:/app
+    env_file:
+      - .envs/.local/.django
+    depends_on:
+      - redis
+      - db
+    networks:
+      - backend_network
+
+  flower:
+    build:
+      context: .
+      dockerfile: ./docker/local/django/Dockerfile
+    command: watchfiles celery.__main__.main --args '-A sparetan_backend_v1.celery -b "redis://redis:6379/0" flower --basic_auth="admin:Pass123456"'
+    ports:
+      - "5555:5555"
+    env_file:
+      - .envs/.local/.django
+    depends_on:
+      - redis
+      - db
+      - api
+    volumes:
+      - flower_data:/data
+    networks:
+      - backend_network
+
+  api:
+    build:
+      context: .
+      dockerfile: docker/local/django/Dockerfile
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    command: /start
+    env_file:
+        - .envs/.local/.django
+    depends_on:
+      - db
+    restart: always
+    networks:
+      - backend_network
+
+volumes:
+  postgres_data:
+  flower_data:
+
+networks:
+  backend_network:
+    driver: bridge
